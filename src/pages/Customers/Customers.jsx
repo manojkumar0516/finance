@@ -1,0 +1,404 @@
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Search, 
+  Plus, 
+  Filter, 
+  MoreVertical, 
+  Phone, 
+  MapPin, 
+  IndianRupee,
+  Edit,
+  Trash2,
+  Eye,
+  X,
+  User,
+  Map,
+  Wallet
+} from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+// Initial dummy data
+const initialCustomers = [
+  { id: 'CUST-001', name: 'Rajesh Kumar', phone: '+91 9876543210', location: 'Anna Nagar, Chennai', loanAmount: 500000, remainingBalance: 450000, status: 'Active', repaymentType: 'Monthly', loanGivenDate: '2026-08-01', paymentsCount: 0 },
+  { id: 'CUST-002', name: 'Priya Sharma', phone: '+91 8765432109', location: 'T Nagar, Chennai', loanAmount: 250000, remainingBalance: 200000, status: 'Active', repaymentType: 'Weekly', loanGivenDate: '2026-08-05', paymentsCount: 0 },
+  { id: 'CUST-003', name: 'Mohammed Ali', phone: '+91 7654321098', location: 'Madurai Main', loanAmount: 1000000, remainingBalance: 1000000, status: 'Active', repaymentType: 'Monthly', loanGivenDate: '2026-07-15', paymentsCount: 0 },
+  { id: 'CUST-004', name: 'Suresh Menon', phone: '+91 6543210987', location: 'Coimbatore', loanAmount: 150000, remainingBalance: 150000, status: 'Pending', repaymentType: 'Daily', loanGivenDate: '2026-08-08', paymentsCount: 0 },
+  { id: 'CUST-005', name: 'Anita Desai', phone: '+91 5432109876', location: 'Trichy', loanAmount: 750000, remainingBalance: 700000, status: 'Active', repaymentType: 'Monthly', loanGivenDate: '2026-06-20', paymentsCount: 0 },
+];
+
+export function Customers() {
+  const [customers, setCustomers] = useState(initialCustomers);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const navigate = useNavigate();
+  
+  const cn = (...inputs) => twMerge(clsx(inputs));
+
+  // Form State
+  const [newCustomer, setNewCustomer] = useState({
+    name: '',
+    phone: '',
+    location: '',
+    loanAmount: '',
+    repaymentType: 'Monthly',
+    loanGivenDate: new Date().toISOString().split('T')[0]
+  });
+
+  const handleAddCustomer = (e) => {
+    e.preventDefault();
+    const customerObj = {
+      id: `CUST-00${customers.length + 1}`,
+      name: newCustomer.name,
+      phone: newCustomer.phone || 'N/A', // fallback if empty
+      location: newCustomer.location || 'N/A',
+      loanAmount: parseFloat(newCustomer.loanAmount) || 0,
+      remainingBalance: parseFloat(newCustomer.loanAmount) || 0,
+      repaymentType: newCustomer.repaymentType,
+      loanGivenDate: newCustomer.loanGivenDate,
+      status: 'Active',
+      paymentsCount: 0,
+      isNewlyAdded: true // Custom flag if we want to show only name
+    };
+    
+    setCustomers([customerObj, ...customers]);
+    setIsAddModalOpen(false);
+    setNewCustomer({ name: '', phone: '', location: '', loanAmount: '', repaymentType: 'Monthly', loanGivenDate: new Date().toISOString().split('T')[0] });
+  };
+
+  const filteredCustomers = customers.filter(customer => 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.phone.includes(searchTerm)
+  );
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 }
+  };
+
+  const getDynamicStatus = (customer) => {
+    if (customer.repaymentType !== 'Daily') return customer.status;
+    if (!customer.loanGivenDate) return customer.status;
+
+    const givenDate = new Date(customer.loanGivenDate);
+    const now = new Date('2026-08-10'); // Context current date
+    const diffTime = now.getTime() - givenDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    const actualPayments = customer.paymentsCount || 0;
+    const pendingCount = diffDays - actualPayments;
+    
+    if (pendingCount > 0) return `${pendingCount} Day${pendingCount > 1 ? 's' : ''} Pending`;
+    if (pendingCount < 0) return 'Advance Paid';
+    return 'Active';
+  };
+
+  const getStatusColor = (status) => {
+    const s = status.toLowerCase();
+    if (s.includes('pending')) {
+      return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800';
+    }
+    if (s === 'active' || s === 'advance paid') {
+      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800';
+    }
+    if (s === 'closed') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800';
+    if (s === 'overdue') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800';
+    return 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400';
+  };
+
+  return (
+    <>
+      <motion.div 
+        variants={containerVariants} 
+        initial="hidden" 
+        animate="visible"
+        className="max-w-7xl mx-auto space-y-6"
+      >
+        {/* Header & Actions */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Customers Directory</h1>
+            <p className="text-slate-500 dark:text-slate-400">Manage all your borrowers and their details.</p>
+          </div>
+          <div className="flex gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64 group">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                <Search size={18} />
+              </div>
+              <input 
+                type="text" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full p-2 pl-10 text-sm text-slate-900 bg-white border border-slate-200 rounded-xl focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800/50 dark:border-slate-700 dark:placeholder-slate-400 dark:text-white transition-all shadow-sm" 
+                placeholder="Search customers..." 
+              />
+            </div>
+            <button className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-800/50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors shadow-sm flex items-center justify-center">
+              <Filter size={20} />
+            </button>
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="btn-primary flex items-center whitespace-nowrap"
+            >
+              <Plus size={18} className="mr-2" />
+              Add Customer
+            </button>
+          </div>
+        </div>
+
+        {/* Customers Table / Grid */}
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+              <thead className="text-xs text-slate-700 uppercase bg-slate-50/50 dark:bg-slate-800/50 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th scope="col" className="px-6 py-4 font-medium">Customer Details</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Contact & Location</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Total Loan Amount</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Remaining Balance</th>
+                  <th scope="col" className="px-6 py-4 font-medium">Status</th>
+                  <th scope="col" className="px-6 py-4 font-medium text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCustomers.map((customer) => (
+                  <motion.tr 
+                    variants={itemVariants}
+                    key={customer.id} 
+                    className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold shadow-inner">
+                          {customer.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-900 dark:text-white">{customer.name}</div>
+                          <div className="text-xs text-slate-500">{customer.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {customer.isNewlyAdded ? (
+                        <span className="text-xs text-slate-400 italic">Details Hidden</span>
+                      ) : (
+                        <div className="flex flex-col gap-1 text-sm">
+                          <div className="flex items-center text-slate-700 dark:text-slate-300">
+                            <Phone size={14} className="mr-2 text-slate-400" />
+                            {customer.phone}
+                          </div>
+                          <div className="flex items-center text-slate-500 text-xs">
+                            <MapPin size={14} className="mr-2 text-slate-400" />
+                            {customer.location}
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {customer.isNewlyAdded ? (
+                        <span className="text-xs text-slate-400 italic">Amount Hidden</span>
+                      ) : (
+                        <div>
+                          <div className="font-semibold text-slate-900 dark:text-white flex items-center">
+                            <IndianRupee size={16} className="mr-1 text-slate-500"/>
+                            {customer.loanAmount.toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            {customer.repaymentType} • Given on {new Date(customer.loanGivenDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {customer.isNewlyAdded ? (
+                        <span className="text-xs text-slate-400 italic">-</span>
+                      ) : (
+                        <div className="font-semibold text-orange-600 dark:text-orange-400 flex items-center bg-orange-50 dark:bg-orange-900/10 w-fit px-3 py-1 rounded-lg border border-orange-100 dark:border-orange-900/30">
+                          <IndianRupee size={14} className="mr-1 opacity-70"/>
+                          {customer.remainingBalance?.toLocaleString('en-IN') || 0}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn("px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap", getStatusColor(getDynamicStatus(customer)))}>
+                        {getDynamicStatus(customer)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 transition-opacity">
+                        <button 
+                          onClick={() => navigate(`/customers/${customer.id}`)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-lg transition-colors" 
+                          title="View Details"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button className="p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Edit">
+                          <Edit size={18} />
+                        </button>
+                        <button className="p-1.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors" title="Delete">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                      <button className="md:hidden p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                         <MoreVertical size={18} />
+                      </button>
+                    </td>
+                  </motion.tr>
+                ))}
+                {filteredCustomers.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                      No customers found matching your search.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Add Customer Modal */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md glass-card p-0 overflow-hidden shadow-2xl"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700/50 bg-white/50 dark:bg-slate-800/50">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Add New Customer</h2>
+                <button 
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddCustomer} className="p-6 space-y-5 bg-white/80 dark:bg-slate-900/80">
+                
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      required
+                      type="text" 
+                      value={newCustomer.name}
+                      onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                      placeholder="e.g. John Doe"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Contact Number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      type="text" 
+                      value={newCustomer.phone}
+                      onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                      placeholder="e.g. +91 9876543210"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Place / Location</label>
+                  <div className="relative">
+                    <Map className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      type="text" 
+                      value={newCustomer.location}
+                      onChange={(e) => setNewCustomer({...newCustomer, location: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                      placeholder="e.g. T Nagar, Chennai"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Initial Loan Amount (₹)</label>
+                  <div className="relative">
+                    <Wallet className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      type="number" 
+                      value={newCustomer.loanAmount}
+                      onChange={(e) => setNewCustomer({...newCustomer, loanAmount: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                      placeholder="e.g. 50000"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Repayment Schedule</label>
+                    <select 
+                      value={newCustomer.repaymentType}
+                      onChange={(e) => setNewCustomer({...newCustomer, repaymentType: e.target.value})}
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                    >
+                      <option value="Daily">Daily</option>
+                      <option value="Weekly">Weekly</option>
+                      <option value="Monthly">Monthly</option>
+                    </select>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Loan Given Date</label>
+                    <input 
+                      type="date"
+                      value={newCustomer.loanGivenDate}
+                      onChange={(e) => setNewCustomer({...newCustomer, loanGivenDate: e.target.value})}
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 btn-primary py-2.5 shadow-blue-500/20"
+                  >
+                    Save Customer
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2563EB;
+  --color-secondary: #10B981;
+  --color-success: #22C55E;
+  --color-danger: #EF4444;
+  --color-warning: #F97316;
+  
+  --font-sans: "Poppins", sans-serif;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/90 backdrop-blur-md border border-white shadow-lg;
+  }
+  
+  .glass-card {
+    @apply bg-white backdrop-blur-lg border border-slate-200 shadow-sm rounded-2xl;
+  }
+  
+  .btn-primary {
+    @apply bg-primary hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95;
+  }
+}
