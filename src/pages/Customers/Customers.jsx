@@ -128,8 +128,8 @@ export function Customers() {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Customers Directory</h1>
             <p className="text-slate-500 dark:text-slate-400">Manage all your borrowers and their details.</p>
           </div>
-          <div className="flex gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64 group">
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="relative w-full sm:w-64 group">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
                 <Search size={18} />
               </div>
@@ -141,31 +141,33 @@ export function Customers() {
                 placeholder="Search customers..." 
               />
             </div>
-            <button className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-800/50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors shadow-sm flex items-center justify-center">
-              <Filter size={20} />
-            </button>
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="btn-primary flex items-center whitespace-nowrap"
-            >
-              <Plus size={18} className="mr-2" />
-              Add Customer
-            </button>
+            <div className="flex gap-3 w-full sm:w-auto mt-1 sm:mt-0">
+              <button className="p-2 px-4 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-800/50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors shadow-sm flex items-center justify-center">
+                <Filter size={20} />
+              </button>
+              <button 
+                onClick={() => setIsAddModalOpen(true)}
+                className="btn-primary flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap"
+              >
+                <Plus size={18} className="mr-2" />
+                Add Customer
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Customers Table / Grid */}
         <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
               <thead className="text-xs text-slate-700 uppercase bg-slate-50/50 dark:bg-slate-800/50 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th scope="col" className="px-6 py-4 font-medium">Customer Details</th>
-                  <th scope="col" className="px-6 py-4 font-medium">Contact & Location</th>
-                  <th scope="col" className="px-6 py-4 font-medium">Total Loan Amount</th>
-                  <th scope="col" className="px-6 py-4 font-medium">Remaining Balance</th>
-                  <th scope="col" className="px-6 py-4 font-medium">Status</th>
-                  <th scope="col" className="px-6 py-4 font-medium text-right">Actions</th>
+                  <th scope="col" className="px-6 py-4 font-medium whitespace-nowrap">Customer Details</th>
+                  <th scope="col" className="px-6 py-4 font-medium whitespace-nowrap">Contact & Location</th>
+                  <th scope="col" className="px-6 py-4 font-medium whitespace-nowrap">Total Loan Amount</th>
+                  <th scope="col" className="px-6 py-4 font-medium whitespace-nowrap">Remaining Balance</th>
+                  <th scope="col" className="px-6 py-4 font-medium whitespace-nowrap">Status</th>
+                  <th scope="col" className="px-6 py-4 font-medium text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -175,7 +177,7 @@ export function Customers() {
                     key={customer.id} 
                     className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group"
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold shadow-inner">
                           {customer.name.charAt(0).toUpperCase()}
@@ -186,7 +188,7 @@ export function Customers() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {customer.isNewlyAdded ? (
                         <span className="text-xs text-slate-400 italic">Details Hidden</span>
                       ) : (
@@ -202,7 +204,7 @@ export function Customers() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {customer.isNewlyAdded ? (
                         <span className="text-xs text-slate-400 italic">Amount Hidden</span>
                       ) : (
@@ -217,7 +219,7 @@ export function Customers() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {customer.isNewlyAdded ? (
                         <span className="text-xs text-slate-400 italic">-</span>
                       ) : (
@@ -227,7 +229,7 @@ export function Customers() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className={cn("px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap", getStatusColor(getDynamicStatus(customer)))}>
                         {getDynamicStatus(customer)}
                       </span>
@@ -263,6 +265,81 @@ export function Customers() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Cards View */}
+          <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-700/50">
+            {filteredCustomers.map((customer) => (
+              <motion.div 
+                variants={itemVariants}
+                key={customer.id} 
+                className="p-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold shadow-inner shrink-0">
+                      {customer.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900 dark:text-white">{customer.name}</div>
+                      <div className="text-xs text-slate-500">{customer.id}</div>
+                    </div>
+                  </div>
+                  <span className={cn("px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap", getStatusColor(getDynamicStatus(customer)))}>
+                    {getDynamicStatus(customer)}
+                  </span>
+                </div>
+                
+                {!customer.isNewlyAdded ? (
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Contact</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{customer.phone}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Location</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium flex-1 text-right ml-4 truncate">{customer.location}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Loan Amount</span>
+                      <span className="text-slate-900 dark:text-white font-medium flex items-center">
+                        <IndianRupee size={14} className="mr-0.5 text-slate-500"/>
+                        {customer.loanAmount.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm items-center">
+                      <span className="text-slate-500">Remaining</span>
+                      <span className="text-orange-600 dark:text-orange-400 font-medium flex items-center bg-orange-50 dark:bg-orange-900/10 px-2 py-0.5 rounded border border-orange-100 dark:border-orange-900/30">
+                        <IndianRupee size={12} className="mr-0.5 opacity-70"/>
+                        {customer.remainingBalance?.toLocaleString('en-IN') || 0}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic mb-4">Details Hidden</div>
+                )}
+                
+                <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/50">
+                  <button 
+                    onClick={() => navigate(`/customers/${customer.id}`)}
+                    className="flex-1 flex items-center justify-center p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-blue-100 dark:border-blue-900/30" 
+                  >
+                    <Eye size={16} className="mr-2" /> View Details
+                  </button>
+                  <button className="flex items-center justify-center p-2 px-3 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-200 dark:border-slate-700">
+                    <Edit size={16} />
+                  </button>
+                  <button className="flex items-center justify-center p-2 px-3 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-red-100 dark:border-red-900/30">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+            {filteredCustomers.length === 0 && (
+              <div className="p-8 text-center text-slate-500">
+                No customers found matching your search.
+              </div>
+            )}
           </div>
         </div>
       </motion.div>

@@ -23,7 +23,7 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-export function Sidebar({ collapsed, setCollapsed }) {
+export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const cn = (...inputs) => twMerge(clsx(inputs));
   const { t } = useLanguage();
 
@@ -40,10 +40,17 @@ export function Sidebar({ collapsed, setCollapsed }) {
     { name: t('settings'), path: '/settings', icon: Settings },
   ];
 
+  const handleNavClick = () => {
+    if (window.innerWidth < 768) {
+      setMobileOpen(false);
+    }
+  };
+
   return (
     <aside 
       className={cn(
-        "fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out bg-blue-900 text-white border-r border-blue-800 rounded-none shadow-xl",
+        "fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out bg-blue-900 text-white border-r border-blue-800 rounded-none shadow-xl md:translate-x-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
         collapsed ? "w-20" : "w-64"
       )}
     >
@@ -68,6 +75,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
               <li key={item.name}>
                 <NavLink
                   to={item.path}
+                  onClick={handleNavClick}
                   className={({ isActive }) => cn(
                     "flex items-center p-2 rounded-xl group transition-all duration-200",
                     isActive 
@@ -90,6 +98,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
               <li key={item.name}>
                 <NavLink
                   to={item.path}
+                  onClick={handleNavClick}
                   className={({ isActive }) => cn(
                     "flex items-center p-2 rounded-xl group transition-all duration-200",
                     isActive 

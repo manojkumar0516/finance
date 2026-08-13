@@ -139,11 +139,11 @@ export function Collections() {
           
           {/* Loan Selection & Filters */}
           <div className="space-y-3">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Select Customer / Loan</label>
               
               {/* Type Filter */}
-              <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+              <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-full sm:w-auto">
                 {['All', 'Daily', 'Weekly', 'Monthly'].map(type => (
                   <button
                     key={type}
@@ -232,7 +232,7 @@ export function Collections() {
               {/* Payment Type */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Payment Type</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {['Interest + Principal', 'Interest Only', 'Principal Only'].map(type => (
                     <button
                       key={type}

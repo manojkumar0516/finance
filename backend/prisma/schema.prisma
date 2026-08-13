@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String
+  location  String?
+  status    String   @default("Active") // 'Active', 'Inactive'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loans     Loan[]
+  payments  Payment[]
+}
+
+model Loan {
+  id                 String    @id @default(uuid())
+  customerId         String
+  principalAmount    Float
+  remainingPrincipal Float
+  interestRate       Float
+  interestType       String    // 'Monthly', 'Weekly', 'Daily'
+  repaymentType      String    // 'Monthly', 'Weekly', 'Daily'
+  loanGivenDate      DateTime
+  nextDueDate        DateTime?
+  status             String    @default("Active") // 'Active', 'Closed', 'Overdue'
+  interestDue        Float     @default(0)
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer           Customer  @relation(fields: [customerId], references: [id])
+  payments           Payment[]
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  loanId         String
+  customerId     String
+  amount         Float
+  principalPaid  Float    @default(0)
+  interestPaid   Float    @default(0)
+  paymentType    String   // 'Interest + Principal', 'Interest Only', 'Principal Only', 'Full Settlement'
+  paymentDate    DateTime @default(now())
+  status         String   @default("Completed") // 'Completed', 'Pending'
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  loan           Loan     @relation(fields: [loanId], references: [id])
+  customer       Customer @relation(fields: [customerId], references: [id])
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("Staff") // 'Admin', 'Staff'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
