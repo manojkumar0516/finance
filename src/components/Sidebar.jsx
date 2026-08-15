@@ -4,9 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { 
   LayoutDashboard, 
   Users, 
-  WalletCards, 
   Banknote, 
-  CalendarDays, 
   BarChart3, 
   ReceiptText, 
   Briefcase, 
@@ -30,10 +28,8 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) 
   const navItems = [
     { name: t('dashboard'), path: '/', icon: LayoutDashboard },
     { name: t('customers'), path: '/customers', icon: Users },
-    { name: t('loans'), path: '/loans', icon: WalletCards },
     { name: t('collections'), path: '/collections', icon: Banknote },
     { name: t('reports'), path: '/reports', icon: BarChart3 },
-    { name: t('calendar'), path: '/calendar', icon: CalendarDays },
   ];
 
   const secondaryNavItems = [

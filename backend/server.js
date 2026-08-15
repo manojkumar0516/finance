@@ -1,12 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import prisma from './postgresql.js';
 
 dotenv.config();
 
 const app = express();
-const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
@@ -21,23 +20,105 @@ app.get('/api/health', (req, res) => {
 app.get('/api/customers', async (req, res) => {
   try {
     const customers = await prisma.customer.findMany({
-      include: { loans: true }
+      include: {
+        loans: {
+          orderBy: { loanGivenDate: 'desc' },
+          take: 1,
+          include: { _count: { select: { payments: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
-    res.json(customers);
+
+    res.json(customers.map((customer) => {
+      const loan = customer.loans[0];
+      return {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        location: customer.location || 'N/A',
+        status: customer.status,
+        loanAmount: loan?.principalAmount ?? 0,
+        remainingBalance: loan?.remainingPrincipal ?? 0,
+        repaymentType: loan?.repaymentType ?? 'N/A',
+        loanGivenDate: loan?.loanGivenDate ?? null,
+        paymentsCount: loan?._count.payments ?? 0,
+      };
+    }));
   } catch (error) {
+    console.error('Failed to fetch customers:', error);
     res.status(500).json({ error: 'Failed to fetch customers' });
   }
 });
 
 app.post('/api/customers', async (req, res) => {
   try {
-    const { name, phone, location } = req.body;
-    const newCustomer = await prisma.customer.create({
-      data: { name, phone, location }
+    const { name, phone, location, loanAmount, repaymentType, loanGivenDate } = req.body;
+    const parsedLoanAmount = Number(loanAmount) || 0;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Customer name is required' });
+    }
+
+    const newCustomer = await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.create({
+        data: {
+          name: name.trim(),
+          phone: phone?.trim() || 'N/A',
+          location: location?.trim() || null,
+        },
+      });
+
+      if (parsedLoanAmount > 0) {
+        await tx.loan.create({
+          data: {
+            customerId: customer.id,
+            principalAmount: parsedLoanAmount,
+            remainingPrincipal: parsedLoanAmount,
+            interestRate: 0,
+            interestType: 'Monthly',
+            repaymentType: repaymentType || 'Monthly',
+            loanGivenDate: loanGivenDate ? new Date(loanGivenDate) : new Date(),
+          },
+        });
+      }
+
+      return tx.customer.findUnique({
+        where: { id: customer.id },
+        include: { loans: { include: { _count: { select: { payments: true } } } } },
+      });
     });
-    res.status(201).json(newCustomer);
+
+    const loan = newCustomer.loans[0];
+    res.status(201).json({
+      id: newCustomer.id,
+      name: newCustomer.name,
+      phone: newCustomer.phone,
+      location: newCustomer.location || 'N/A',
+      status: newCustomer.status,
+      loanAmount: loan?.principalAmount ?? 0,
+      remainingBalance: loan?.remainingPrincipal ?? 0,
+      repaymentType: loan?.repaymentType ?? 'N/A',
+      loanGivenDate: loan?.loanGivenDate ?? null,
+      paymentsCount: loan?._count.payments ?? 0,
+    });
   } catch (error) {
+    console.error('Failed to create customer:', error);
     res.status(500).json({ error: 'Failed to create customer' });
+  }
+});
+
+app.delete('/api/customers/:id', async (req, res) => {
+  try {
+    await prisma.$transaction([
+      prisma.payment.deleteMany({ where: { customerId: req.params.id } }),
+      prisma.loan.deleteMany({ where: { customerId: req.params.id } }),
+      prisma.customer.delete({ where: { id: req.params.id } }),
+    ]);
+    res.status(204).end();
+  } catch (error) {
+    console.error('Failed to delete customer:', error);
+    res.status(500).json({ error: 'Failed to delete customer' });
   }
 });
 

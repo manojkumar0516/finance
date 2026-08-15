@@ -50,9 +50,7 @@ function App() {
             <Route index element={<Customers />} />
             <Route path=":id" element={<CustomerProfile />} />
           </Route>
-          <Route path="loans" element={<Placeholder title="Loan Management" />} />
           <Route path="collections" element={<Collections />} />
-          <Route path="calendar" element={<Placeholder title="Calendar" />} />
           <Route path="reports" element={<Reports />} />
           <Route path="expenses" element={<Placeholder title="Expense Management" />} />
           <Route path="employees" element={<Placeholder title="Employee Management" />} />

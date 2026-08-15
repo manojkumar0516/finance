@@ -6,18 +6,24 @@ import { Lock, User, ArrowRight } from 'lucide-react';
 export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
     e.preventDefault();
-    // Dummy authentication logic: any username/password works
-    if (username && password) {
+    setError('');
+
+    // Temporary local credentials until backend authentication is connected.
+    if (username === 'admin' && password === 'admin2026') {
       localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('username', username);
+      localStorage.setItem('username', 'admin');
       // Trigger a custom event so App.jsx or others can detect login immediately
       window.dispatchEvent(new Event('authChange'));
       navigate('/');
+      return;
     }
+
+    setError('Invalid username or password.');
   };
 
   return (
@@ -67,7 +73,10 @@ export function Login() {
                 <input 
                   type="text" 
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setError('');
+                  }}
                   className="w-full p-4 pl-12 text-slate-900 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-900 dark:border-slate-800 dark:text-white transition-all shadow-sm"
                   placeholder="Enter your username"
                   required
@@ -82,7 +91,10 @@ export function Login() {
                 <input 
                   type="password" 
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
                   className="w-full p-4 pl-12 text-slate-900 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-900 dark:border-slate-800 dark:text-white transition-all shadow-sm"
                   placeholder="••••••••"
                   required
@@ -90,6 +102,12 @@ export function Login() {
                 <Lock className="absolute left-4 top-4 text-slate-400" size={20} />
               </div>
             </div>
+
+            {error && (
+              <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+                {error}
+              </p>
+            )}
 
             <button 
               type="submit"

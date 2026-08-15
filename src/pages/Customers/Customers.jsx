@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -20,17 +20,12 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-// Initial dummy data
-const initialCustomers = [
-  { id: 'CUST-001', name: 'Rajesh Kumar', phone: '+91 9876543210', location: 'Anna Nagar, Chennai', loanAmount: 500000, remainingBalance: 450000, status: 'Active', repaymentType: 'Monthly', loanGivenDate: '2026-08-01', paymentsCount: 0 },
-  { id: 'CUST-002', name: 'Priya Sharma', phone: '+91 8765432109', location: 'T Nagar, Chennai', loanAmount: 250000, remainingBalance: 200000, status: 'Active', repaymentType: 'Weekly', loanGivenDate: '2026-08-05', paymentsCount: 0 },
-  { id: 'CUST-003', name: 'Mohammed Ali', phone: '+91 7654321098', location: 'Madurai Main', loanAmount: 1000000, remainingBalance: 1000000, status: 'Active', repaymentType: 'Monthly', loanGivenDate: '2026-07-15', paymentsCount: 0 },
-  { id: 'CUST-004', name: 'Suresh Menon', phone: '+91 6543210987', location: 'Coimbatore', loanAmount: 150000, remainingBalance: 150000, status: 'Pending', repaymentType: 'Daily', loanGivenDate: '2026-08-08', paymentsCount: 0 },
-  { id: 'CUST-005', name: 'Anita Desai', phone: '+91 5432109876', location: 'Trichy', loanAmount: 750000, remainingBalance: 700000, status: 'Active', repaymentType: 'Monthly', loanGivenDate: '2026-06-20', paymentsCount: 0 },
-];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export function Customers() {
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -47,25 +42,51 @@ export function Customers() {
     loanGivenDate: new Date().toISOString().split('T')[0]
   });
 
-  const handleAddCustomer = (e) => {
-    e.preventDefault();
-    const customerObj = {
-      id: `CUST-00${customers.length + 1}`,
-      name: newCustomer.name,
-      phone: newCustomer.phone || 'N/A', // fallback if empty
-      location: newCustomer.location || 'N/A',
-      loanAmount: parseFloat(newCustomer.loanAmount) || 0,
-      remainingBalance: parseFloat(newCustomer.loanAmount) || 0,
-      repaymentType: newCustomer.repaymentType,
-      loanGivenDate: newCustomer.loanGivenDate,
-      status: 'Active',
-      paymentsCount: 0,
-      isNewlyAdded: true // Custom flag if we want to show only name
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        const response = await fetch(`${API_URL}/customers`);
+        if (!response.ok) throw new Error('Unable to load customers');
+        setCustomers(await response.json());
+      } catch (loadError) {
+        setError('Could not load customers. Make sure the backend server is running.');
+      } finally {
+        setIsLoading(false);
+      }
     };
-    
-    setCustomers([customerObj, ...customers]);
-    setIsAddModalOpen(false);
-    setNewCustomer({ name: '', phone: '', location: '', loanAmount: '', repaymentType: 'Monthly', loanGivenDate: new Date().toISOString().split('T')[0] });
+
+    loadCustomers();
+  }, []);
+
+  const handleAddCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_URL}/customers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCustomer),
+      });
+      const customer = await response.json();
+      if (!response.ok) throw new Error(customer.error || 'Unable to add customer');
+
+      setCustomers((currentCustomers) => [customer, ...currentCustomers]);
+      setIsAddModalOpen(false);
+      setNewCustomer({ name: '', phone: '', location: '', loanAmount: '', repaymentType: 'Monthly', loanGivenDate: new Date().toISOString().split('T')[0] });
+    } catch (saveError) {
+      setError(saveError.message || 'Could not add the customer.');
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId) => {
+    if (!window.confirm('Delete this customer and their loan records?')) return;
+
+    try {
+      const response = await fetch(`${API_URL}/customers/${customerId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Unable to delete customer');
+      setCustomers((currentCustomers) => currentCustomers.filter((customer) => customer.id !== customerId));
+    } catch (deleteError) {
+      setError(deleteError.message || 'Could not delete the customer.');
+    }
   };
 
   const filteredCustomers = customers.filter(customer => 
@@ -114,6 +135,12 @@ export function Customers() {
     return 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400';
   };
 
+  const getLoanDateLabel = (customer) => (
+    customer.loanGivenDate
+      ? `Given on ${new Date(customer.loanGivenDate).toLocaleDateString()}`
+      : 'No active loan'
+  );
+
   return (
     <>
       <motion.div 
@@ -147,6 +174,7 @@ export function Customers() {
               </button>
               <button 
                 onClick={() => setIsAddModalOpen(true)}
+                disabled={isLoading}
                 className="btn-primary flex-1 sm:flex-none flex items-center justify-center whitespace-nowrap"
               >
                 <Plus size={18} className="mr-2" />
@@ -155,6 +183,12 @@ export function Customers() {
             </div>
           </div>
         </div>
+
+        {error && (
+          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+            {error}
+          </p>
+        )}
 
         {/* Customers Table / Grid */}
         <div className="glass-card overflow-hidden">
@@ -171,7 +205,11 @@ export function Customers() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCustomers.map((customer) => (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">Loading customers…</td>
+                  </tr>
+                ) : filteredCustomers.map((customer) => (
                   <motion.tr 
                     variants={itemVariants}
                     key={customer.id} 
@@ -214,7 +252,7 @@ export function Customers() {
                             {customer.loanAmount.toLocaleString('en-IN')}
                           </div>
                           <div className="text-xs text-slate-500 mt-1">
-                            {customer.repaymentType} • Given on {new Date(customer.loanGivenDate).toLocaleDateString()}
+                            {customer.repaymentType} • {getLoanDateLabel(customer)}
                           </div>
                         </div>
                       )}
@@ -246,7 +284,11 @@ export function Customers() {
                         <button className="p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Edit">
                           <Edit size={18} />
                         </button>
-                        <button className="p-1.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors" title="Delete">
+                        <button
+                          onClick={() => handleDeleteCustomer(customer.id)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                          title="Delete"
+                        >
                           <Trash2 size={18} />
                         </button>
                       </div>
@@ -256,7 +298,7 @@ export function Customers() {
                     </td>
                   </motion.tr>
                 ))}
-                {filteredCustomers.length === 0 && (
+                {!isLoading && filteredCustomers.length === 0 && (
                   <tr>
                     <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
                       No customers found matching your search.
@@ -269,7 +311,9 @@ export function Customers() {
 
           {/* Mobile Cards View */}
           <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-700/50">
-            {filteredCustomers.map((customer) => (
+            {isLoading ? (
+              <div className="p-8 text-center text-slate-500">Loading customers…</div>
+            ) : filteredCustomers.map((customer) => (
               <motion.div 
                 variants={itemVariants}
                 key={customer.id} 
@@ -329,13 +373,17 @@ export function Customers() {
                   <button className="flex items-center justify-center p-2 px-3 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-200 dark:border-slate-700">
                     <Edit size={16} />
                   </button>
-                  <button className="flex items-center justify-center p-2 px-3 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-red-100 dark:border-red-900/30">
+                  <button
+                    onClick={() => handleDeleteCustomer(customer.id)}
+                    className="flex items-center justify-center p-2 px-3 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-red-100 dark:border-red-900/30"
+                    title="Delete"
+                  >
                     <Trash2 size={16} />
                   </button>
                 </div>
               </motion.div>
             ))}
-            {filteredCustomers.length === 0 && (
+            {!isLoading && filteredCustomers.length === 0 && (
               <div className="p-8 text-center text-slate-500">
                 No customers found matching your search.
               </div>
