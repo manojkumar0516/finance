@@ -16,6 +16,116 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
+// --- DASHBOARD API ---
+app.get('/api/dashboard/summary', async (req, res) => {
+  try {
+    const [
+      totalInvestmentAgg,
+      remainingPrincipalAgg,
+      totalInterestAgg,
+      activeCustomersCount,
+      loanDistributionRaw,
+      recentCollections,
+      overdueLoansRaw,
+      paymentsRaw,
+      loansRaw
+    ] = await Promise.all([
+      prisma.loan.aggregate({ _sum: { principalAmount: true } }),
+      prisma.loan.aggregate({ _sum: { remainingPrincipal: true } }),
+      prisma.payment.aggregate({ _sum: { interestPaid: true } }),
+      prisma.customer.count({ where: { status: 'Active' } }),
+      prisma.loan.groupBy({ by: ['status'], _count: { _all: true } }),
+      prisma.payment.findMany({
+        take: 4,
+        orderBy: { paymentDate: 'desc' },
+        include: { customer: { select: { name: true } } }
+      }),
+      prisma.loan.findMany({
+        where: { status: 'Overdue' },
+        take: 3,
+        include: { customer: { select: { name: true } } }
+      }),
+      prisma.payment.findMany({ select: { paymentDate: true, amount: true } }),
+      prisma.loan.findMany({ select: { loanGivenDate: true, principalAmount: true } })
+    ]);
+
+    // Format Monthly Data (Last 7 months)
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentDate = new Date();
+    const monthlyData = [];
+    
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthName = months[d.getMonth()];
+      const year = d.getFullYear();
+      
+      const income = paymentsRaw
+        .filter(p => new Date(p.paymentDate).getMonth() === d.getMonth() && new Date(p.paymentDate).getFullYear() === year)
+        .reduce((sum, p) => sum + p.amount, 0);
+        
+      const expenses = loansRaw
+        .filter(l => new Date(l.loanGivenDate).getMonth() === d.getMonth() && new Date(l.loanGivenDate).getFullYear() === year)
+        .reduce((sum, l) => sum + l.principalAmount, 0);
+
+      monthlyData.push({ name: monthName, income, expenses });
+    }
+
+    // Format Loan Distribution
+    const colorMap = { 'Active': '#10B981', 'Pending': '#F59E0B', 'Closed': '#3B82F6', 'Overdue': '#EF4444' };
+    const loanDistribution = loanDistributionRaw.map(l => ({
+      name: l.status,
+      value: l._count._all,
+      color: colorMap[l.status] || '#CBD5E1'
+    }));
+    
+    // Ensure total loans are calculated
+    const totalLoansCount = loanDistribution.reduce((acc, curr) => acc + curr.value, 0);
+
+    // Format Recent Collections
+    const formattedCollections = recentCollections.map(p => ({
+      id: p.id,
+      name: p.customer.name,
+      amount: p.amount,
+      type: p.paymentType,
+      status: p.status,
+      date: new Date(p.paymentDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }));
+
+    // Format Overdue Loans
+    const formattedOverdue = overdueLoansRaw.map(l => {
+      const daysOverdue = l.nextDueDate ? Math.floor((new Date() - new Date(l.nextDueDate)) / (1000 * 60 * 60 * 24)) : 0;
+      return {
+        id: l.id,
+        name: l.customer.name,
+        daysOverdue: daysOverdue > 0 ? daysOverdue : 'Unknown',
+        amount: l.remainingPrincipal
+      };
+    });
+
+    res.json({
+      topStats: {
+        totalInvestment: totalInvestmentAgg._sum.principalAmount || 0,
+        remainingPrincipal: remainingPrincipalAgg._sum.remainingPrincipal || 0,
+        totalInterestEarned: totalInterestAgg._sum.interestPaid || 0,
+        activeCustomers: activeCustomersCount || 0
+      },
+      charts: {
+        monthlyData,
+        loanDistribution,
+        totalLoansCount
+      },
+      lists: {
+        recentCollections: formattedCollections,
+        overdueLoans: formattedOverdue
+      }
+    });
+
+  } catch (error) {
+    console.error('Failed to fetch dashboard summary:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard summary' });
+  }
+});
+
 // --- CUSTOMERS API ---
 app.get('/api/customers', async (req, res) => {
   try {
@@ -119,6 +229,75 @@ app.delete('/api/customers/:id', async (req, res) => {
   } catch (error) {
     console.error('Failed to delete customer:', error);
     res.status(500).json({ error: 'Failed to delete customer' });
+  }
+});
+
+app.get('/api/customers/:id', async (req, res) => {
+  try {
+    const customer = await prisma.customer.findUnique({
+      where: { id: req.params.id },
+      include: {
+        loans: {
+          orderBy: { loanGivenDate: 'desc' },
+          take: 1, // Get the most recent loan
+          include: {
+            payments: {
+              orderBy: { paymentDate: 'desc' }
+            }
+          }
+        }
+      }
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const loan = customer.loans[0];
+    
+    let formattedLoan = null;
+    let paymentHistory = [];
+
+    if (loan) {
+      formattedLoan = {
+        loanId: loan.id,
+        principalAmount: loan.principalAmount,
+        interestType: loan.interestType,
+        interestRate: loan.interestRate,
+        remainingPrincipal: loan.remainingPrincipal,
+        startDate: new Date(loan.loanGivenDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }),
+        status: loan.status
+      };
+
+      paymentHistory = loan.payments.map(p => ({
+        id: p.id,
+        date: new Date(p.paymentDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }),
+        totalPaid: p.amount,
+        interestPart: p.interestPaid,
+        principalPart: p.principalPaid,
+        mode: p.paymentType,
+        status: p.status
+      }));
+    }
+
+    res.json({
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      altPhone: 'N/A', // Not in DB
+      location: customer.location || 'N/A',
+      address: customer.location || 'N/A', // Using location as address
+      occupation: 'Not Provided',
+      aadharNumber: 'Not Provided',
+      panNumber: 'Not Provided',
+      status: customer.status,
+      joinedDate: new Date(customer.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }),
+      loan: formattedLoan,
+      paymentHistory: paymentHistory
+    });
+  } catch (error) {
+    console.error('Failed to fetch customer profile:', error);
+    res.status(500).json({ error: 'Failed to fetch customer profile' });
   }
 });
 

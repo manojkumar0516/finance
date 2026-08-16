@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   IndianRupee, 
@@ -22,32 +23,32 @@ import {
   Cell
 } from 'recharts';
 
-// Dummy Data
-const monthlyData = [
-  { name: 'Jan', income: 4000, expenses: 2400 },
-  { name: 'Feb', income: 3000, expenses: 1398 },
-  { name: 'Mar', income: 2000, expenses: 9800 },
-  { name: 'Apr', income: 2780, expenses: 3908 },
-  { name: 'May', income: 1890, expenses: 4800 },
-  { name: 'Jun', income: 2390, expenses: 3800 },
-  { name: 'Jul', income: 3490, expenses: 4300 },
-];
-
-const loanDistribution = [
-  { name: 'Active', value: 400, color: '#10B981' },
-  { name: 'Pending', value: 300, color: '#F59E0B' },
-  { name: 'Closed', value: 300, color: '#3B82F6' },
-  { name: 'Overdue', value: 200, color: '#EF4444' },
-];
-
-const recentCollections = [
-  { id: 1, name: 'Rajesh Kumar', amount: 5000, type: 'Interest + Principal', status: 'Completed', date: 'Today, 10:30 AM' },
-  { id: 2, name: 'Suresh Menon', amount: 1200, type: 'Interest Only', status: 'Completed', date: 'Today, 09:15 AM' },
-  { id: 3, name: 'Anita Sharma', amount: 3500, type: 'Principal Only', status: 'Pending', date: 'Yesterday' },
-  { id: 4, name: 'Vikram Singh', amount: 15000, type: 'Full Settlement', status: 'Completed', date: 'Yesterday' },
-];
-
 export function Dashboard() {
+  const [data, setData] = useState({
+    topStats: { totalInvestment: 0, remainingPrincipal: 0, totalInterestEarned: 0, activeCustomers: 0 },
+    charts: { monthlyData: [], loanDistribution: [], totalLoansCount: 0 },
+    lists: { recentCollections: [], overdueLoans: [] }
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/dashboard/summary');
+        if (!response.ok) throw new Error('Failed to fetch dashboard data');
+        const result = await response.json();
+        setData(result);
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+        setError("Could not connect to database. Showing empty layout.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { 
@@ -69,7 +70,7 @@ export function Dashboard() {
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{title}</p>
           <h3 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center">
             {title.includes('Total') || title.includes('Collection') || title.includes('Principal') ? <IndianRupee size={22} className="mr-1"/> : null}
-            {value}
+            {value.toLocaleString('en-IN')}
           </h3>
         </div>
         <div className={`p-3 rounded-xl ${colorClass.replace('bg-', 'bg-opacity-20 text-').replace('500', '600')} dark:bg-opacity-20`}>
@@ -86,6 +87,10 @@ export function Dashboard() {
     </motion.div>
   );
 
+  const { topStats, charts, lists } = data;
+  const { monthlyData, loanDistribution, totalLoansCount } = charts;
+  const { recentCollections, overdueLoans } = lists;
+
   return (
     <motion.div 
       variants={containerVariants} 
@@ -93,6 +98,11 @@ export function Dashboard() {
       animate="visible"
       className="max-w-7xl mx-auto space-y-6"
     >
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-xl mb-4 text-sm font-medium">
+          {error}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard Overview</h1>
@@ -108,16 +118,16 @@ export function Dashboard() {
 
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Investment" value="12,50,000" icon={WalletCards} trend="up" trendValue="12.5%" colorClass="bg-blue-500" />
-        <StatCard title="Remaining Principal" value="8,20,000" icon={IndianRupee} trend="down" trendValue="4.2%" colorClass="bg-emerald-500" />
-        <StatCard title="Total Interest Earned" value="3,45,000" icon={TrendingUp} trend="up" trendValue="18.2%" colorClass="bg-purple-500" />
-        <StatCard title="Active Customers" value="248" icon={Users} trend="up" trendValue="5.1%" colorClass="bg-orange-500" />
+        <StatCard title="Total Investment" value={topStats.totalInvestment} icon={WalletCards} trend="up" trendValue="12.5%" colorClass="bg-blue-500" />
+        <StatCard title="Remaining Principal" value={topStats.remainingPrincipal} icon={IndianRupee} trend="down" trendValue="4.2%" colorClass="bg-emerald-500" />
+        <StatCard title="Total Interest Earned" value={topStats.totalInterestEarned} icon={TrendingUp} trend="up" trendValue="18.2%" colorClass="bg-purple-500" />
+        <StatCard title="Active Customers" value={topStats.activeCustomers} icon={Users} trend="up" trendValue="5.1%" colorClass="bg-orange-500" />
       </div>
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div variants={itemVariants} className="glass-card p-6 lg:col-span-2">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Income vs Expenses</h3>
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Income vs Expenses (Last 7 Months)</h3>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -162,7 +172,7 @@ export function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex items-center justify-center flex-col">
-                <span className="text-2xl font-bold text-slate-800 dark:text-white">1,200</span>
+                <span className="text-2xl font-bold text-slate-800 dark:text-white">{totalLoansCount.toLocaleString()}</span>
                 <span className="text-xs text-slate-500">Total Loans</span>
               </div>
           </div>
@@ -170,9 +180,12 @@ export function Dashboard() {
              {loanDistribution.map(item => (
                 <div key={item.name} className="flex items-center text-sm">
                   <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: item.color }}></span>
-                  <span className="text-slate-600 dark:text-slate-300">{item.name}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{item.name} ({item.value})</span>
                 </div>
              ))}
+             {loanDistribution.length === 0 && (
+               <div className="col-span-2 text-center text-sm text-slate-500 mt-2">No loans found</div>
+             )}
           </div>
         </motion.div>
       </div>
@@ -206,6 +219,9 @@ export function Dashboard() {
                   </div>
                 </div>
               ))}
+              {recentCollections.length === 0 && (
+                <div className="text-center text-slate-500 py-4">No recent collections found.</div>
+              )}
            </div>
         </motion.div>
 
@@ -225,19 +241,29 @@ export function Dashboard() {
               </button>
            </div>
            
-           <h3 className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-3">Critical Overdue (3)</h3>
+           <h3 className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-3">
+             Critical Overdue ({overdueLoans.length})
+           </h3>
            <div className="space-y-3">
-              {[1,2,3].map(i => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
+              {overdueLoans.map(loan => (
+                <div key={loan.id} className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
                   <div>
-                    <h4 className="font-medium text-slate-800 dark:text-slate-200">Customer {i}</h4>
-                    <p className="text-xs text-red-500">Overdue by {i * 5} days</p>
+                    <h4 className="font-medium text-slate-800 dark:text-slate-200">{loan.name}</h4>
+                    <p className="text-xs text-red-500">
+                      {loan.daysOverdue !== 'Unknown' ? `Overdue by ${loan.daysOverdue} days` : 'Overdue (Date Unknown)'}
+                    </p>
                   </div>
-                  <button className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors">
-                    Remind
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-slate-800 dark:text-white text-sm">₹{loan.amount.toLocaleString()}</span>
+                    <button className="px-3 py-1 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors">
+                      Remind
+                    </button>
+                  </div>
                 </div>
               ))}
+              {overdueLoans.length === 0 && (
+                <div className="text-center text-slate-500 py-4">No overdue loans found.</div>
+              )}
            </div>
         </motion.div>
       </div>

@@ -45,7 +45,11 @@ export function Login() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h1 className="text-5xl font-extrabold text-white mb-6 tracking-tight">AK Fin Crm</h1>
+            {/* Logo Placeholder - Replace this div with your <img> tag when ready */}
+            <div className="w-20 h-20 rounded-2xl bg-blue-800/60 backdrop-blur-sm flex items-center justify-center mx-auto mb-8 border border-blue-700 shadow-inner">
+              <span className="text-sm font-bold text-blue-300 tracking-widest">LOGO</span>
+            </div>
+            <h1 className="text-5xl font-extrabold text-white mb-6 tracking-tight">AK Finance</h1>
             <p className="text-xl text-blue-100 font-light max-w-md mx-auto leading-relaxed">
               The complete solution for managing loans, customers, and daily collections with precision and ease.
             </p>

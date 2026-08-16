@@ -54,9 +54,15 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) 
         <div>
           <div className="flex items-center justify-between mb-6 px-2">
             {!collapsed && (
-              <span className="self-center text-xl font-bold whitespace-nowrap text-white">
-                AK Fin Crm
-              </span>
+              <div className="flex items-center gap-3">
+                {/* Logo Space - Replace this div with your actual <img> tag when ready */}
+                <div className="w-8 h-8 rounded-lg bg-blue-800/80 flex items-center justify-center shrink-0 border border-blue-700 shadow-inner">
+                  <span className="text-[10px] font-bold text-blue-300 tracking-wider">LOGO</span>
+                </div>
+                <span className="self-center text-xl font-bold whitespace-nowrap text-white tracking-wide">
+                  AK Finance
+                </span>
+              </div>
             )}
             <button 
               onClick={() => setCollapsed(!collapsed)}
