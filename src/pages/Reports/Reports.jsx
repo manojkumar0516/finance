@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   IndianRupee, 
@@ -21,39 +21,39 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-// Dummy Data for Weekly
-const weeklyData = [
-  { name: 'Mon', disbursed: 150000, collected: 80000 },
-  { name: 'Tue', disbursed: 20000, collected: 95000 },
-  { name: 'Wed', disbursed: 300000, collected: 110000 },
-  { name: 'Thu', disbursed: 50000, collected: 105000 },
-  { name: 'Fri', disbursed: 0, collected: 150000 },
-  { name: 'Sat', disbursed: 100000, collected: 60000 },
-  { name: 'Sun', disbursed: 0, collected: 20000 },
-];
-
-// Dummy Data for Monthly
-const monthlyData = [
-  { name: 'Week 1', disbursed: 450000, collected: 300000 },
-  { name: 'Week 2', disbursed: 200000, collected: 350000 },
-  { name: 'Week 3', disbursed: 600000, collected: 400000 },
-  { name: 'Week 4', disbursed: 150000, collected: 450000 },
-];
-
-const recentTransactions = [
-  { id: 'TRX-001', type: 'Collected', customer: 'Rajesh Kumar', amount: 15000, date: 'Today, 10:30 AM' },
-  { id: 'TRX-002', type: 'Disbursed', customer: 'Anita Desai', amount: 750000, date: 'Yesterday, 02:15 PM' },
-  { id: 'TRX-003', type: 'Collected', customer: 'Suresh Menon', amount: 5000, date: 'Yesterday, 11:00 AM' },
-  { id: 'TRX-004', type: 'Collected', customer: 'Priya Sharma', amount: 12000, date: 'Aug 08, 09:30 AM' },
-  { id: 'TRX-005', type: 'Disbursed', customer: 'Mohammed Ali', amount: 100000, date: 'Aug 07, 04:45 PM' },
-];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export function Reports() {
   const [reportType, setReportType] = useState('weekly'); // 'weekly' or 'monthly'
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const response = await fetch(`${API_URL}/reports`);
+        const json = await response.json();
+        setData(json);
+      } catch (error) {
+        console.error('Failed to fetch reports:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchReports();
+  }, []);
   
   const cn = (...inputs) => twMerge(clsx(inputs));
   
-  const currentData = reportType === 'weekly' ? weeklyData : monthlyData;
+  if (isLoading || !data) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  const currentData = reportType === 'weekly' ? data.weeklyData : data.monthlyData;
   const totalDisbursed = currentData.reduce((acc, curr) => acc + curr.disbursed, 0);
   const totalCollected = currentData.reduce((acc, curr) => acc + curr.collected, 0);
 
@@ -197,7 +197,7 @@ export function Reports() {
               </tr>
             </thead>
             <tbody>
-              {recentTransactions.map((trx, index) => (
+              {data.recentTransactions.map((trx) => (
                 <tr key={trx.id} className="border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-200">{trx.id}</td>
                   <td className="px-6 py-4">

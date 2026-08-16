@@ -10,12 +10,13 @@ datasource db {
 }
 
 model Customer {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String
-  location  String?
-  status    String   @default("Active") // 'Active', 'Inactive'
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  name         String
+  phone        String
+  location     String?
+  aadharNumber String?
+  status       String   @default("Active") // 'Active', 'Inactive'
+  createdAt    DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   loans     Loan[]

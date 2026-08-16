@@ -12,10 +12,11 @@ import {
   Edit,
   Trash2,
   Eye,
-  X,
   User,
   Map,
-  Wallet
+  Wallet,
+  BadgePercent,
+  CreditCard
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -28,6 +29,8 @@ export function Customers() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
   const navigate = useNavigate();
   
   const cn = (...inputs) => twMerge(clsx(inputs));
@@ -37,7 +40,10 @@ export function Customers() {
     name: '',
     phone: '',
     location: '',
+    aadharNumber: '',
     loanAmount: '',
+    interestRate: '',
+    interestType: 'Monthly',
     repaymentType: 'Monthly',
     loanGivenDate: new Date().toISOString().split('T')[0]
   });
@@ -71,7 +77,7 @@ export function Customers() {
 
       setCustomers((currentCustomers) => [customer, ...currentCustomers]);
       setIsAddModalOpen(false);
-      setNewCustomer({ name: '', phone: '', location: '', loanAmount: '', repaymentType: 'Monthly', loanGivenDate: new Date().toISOString().split('T')[0] });
+      setNewCustomer({ name: '', phone: '', location: '', aadharNumber: '', loanAmount: '', interestRate: '', interestType: 'Monthly', repaymentType: 'Monthly', loanGivenDate: new Date().toISOString().split('T')[0] });
     } catch (saveError) {
       setError(saveError.message || 'Could not add the customer.');
     }
@@ -86,6 +92,36 @@ export function Customers() {
       setCustomers((currentCustomers) => currentCustomers.filter((customer) => customer.id !== customerId));
     } catch (deleteError) {
       setError(deleteError.message || 'Could not delete the customer.');
+    }
+  };
+
+  const handleEditClick = (customer) => {
+    setEditingCustomer(customer);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_URL}/customers/${editingCustomer.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingCustomer.name,
+          phone: editingCustomer.phone,
+          location: editingCustomer.location
+        }),
+      });
+      const updatedCustomer = await response.json();
+      if (!response.ok) throw new Error(updatedCustomer.error || 'Unable to update customer');
+
+      setCustomers((currentCustomers) => 
+        currentCustomers.map(c => c.id === updatedCustomer.id ? updatedCustomer : c)
+      );
+      setIsEditModalOpen(false);
+      setEditingCustomer(null);
+    } catch (saveError) {
+      setError(saveError.message || 'Could not update the customer.');
     }
   };
 
@@ -106,18 +142,39 @@ export function Customers() {
   };
 
   const getDynamicStatus = (customer) => {
-    if (customer.repaymentType !== 'Daily') return customer.status;
     if (!customer.loanGivenDate) return customer.status;
+    if (customer.status === 'Completed' || customer.status === 'Closed') return customer.status;
 
     const givenDate = new Date(customer.loanGivenDate);
-    const now = new Date('2026-08-10'); // Context current date
-    const diffTime = now.getTime() - givenDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const now = new Date();
     
+    const givenDateMidnight = new Date(givenDate.getFullYear(), givenDate.getMonth(), givenDate.getDate());
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffTime = nowMidnight.getTime() - givenDateMidnight.getTime();
+    const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+
+    let expectedPayments = 0;
+    let periodLabel = '';
+    
+    if (customer.repaymentType === 'Daily') { expectedPayments = diffDays; periodLabel = 'Day'; }
+    else if (customer.repaymentType === 'Weekly') { expectedPayments = Math.floor(diffDays / 7); periodLabel = 'Week'; }
+    else if (customer.repaymentType === 'Monthly') { 
+        let months = (nowMidnight.getFullYear() - givenDateMidnight.getFullYear()) * 12;
+        months -= givenDateMidnight.getMonth();
+        months += nowMidnight.getMonth();
+        if (nowMidnight.getDate() < givenDateMidnight.getDate()) {
+            months--;
+        }
+        expectedPayments = Math.max(0, months);
+        periodLabel = 'Month'; 
+    } else {
+        return customer.status;
+    }
+
     const actualPayments = customer.paymentsCount || 0;
-    const pendingCount = diffDays - actualPayments;
+    const pendingCount = expectedPayments - actualPayments;
     
-    if (pendingCount > 0) return `${pendingCount} Day${pendingCount > 1 ? 's' : ''} Pending`;
+    if (pendingCount > 0) return `${pendingCount} ${periodLabel}${pendingCount > 1 ? 's' : ''} Pending`;
     if (pendingCount < 0) return 'Advance Paid';
     return 'Active';
   };
@@ -253,6 +310,9 @@ export function Customers() {
                           </div>
                           <div className="text-xs text-slate-500 mt-1">
                             {customer.repaymentType} • {getLoanDateLabel(customer)}
+                            <div className="text-blue-600 dark:text-blue-400 font-medium mt-0.5">
+                              {customer.interestRate > 0 ? `Interest: ${customer.interestRate}% (${customer.interestType})` : '0% Interest'}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -281,7 +341,11 @@ export function Customers() {
                         >
                           <Eye size={18} />
                         </button>
-                        <button className="p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Edit">
+                        <button 
+                          onClick={() => handleEditClick(customer)}
+                          className="p-1.5 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors" 
+                          title="Edit"
+                        >
                           <Edit size={18} />
                         </button>
                         <button
@@ -346,10 +410,15 @@ export function Customers() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500">Loan Amount</span>
-                      <span className="text-slate-900 dark:text-white font-medium flex items-center">
-                        <IndianRupee size={14} className="mr-0.5 text-slate-500"/>
-                        {customer.loanAmount.toLocaleString('en-IN')}
-                      </span>
+                      <div className="text-right">
+                        <span className="text-slate-900 dark:text-white font-medium flex items-center justify-end">
+                          <IndianRupee size={14} className="mr-0.5 text-slate-500"/>
+                          {customer.loanAmount.toLocaleString('en-IN')}
+                        </span>
+                        <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-0.5">
+                          {customer.interestRate > 0 ? `${customer.interestRate}% (${customer.interestType})` : '0% Int'}
+                        </div>
+                      </div>
                     </div>
                     <div className="flex justify-between text-sm items-center">
                       <span className="text-slate-500">Remaining</span>
@@ -370,7 +439,10 @@ export function Customers() {
                   >
                     <Eye size={16} className="mr-2" /> View Details
                   </button>
-                  <button className="flex items-center justify-center p-2 px-3 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-200 dark:border-slate-700">
+                  <button 
+                    onClick={() => handleEditClick(customer)}
+                    className="flex items-center justify-center p-2 px-3 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-200 dark:border-slate-700"
+                  >
                     <Edit size={16} />
                   </button>
                   <button
@@ -466,6 +538,20 @@ export function Customers() {
                 </div>
 
                 <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Aadhar Number <span className="text-slate-400 font-normal">(Optional)</span></label>
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      type="text" 
+                      value={newCustomer.aadharNumber}
+                      onChange={(e) => setNewCustomer({...newCustomer, aadharNumber: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                      placeholder="e.g. 1234 5678 9012"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Initial Loan Amount (₹)</label>
                   <div className="relative">
                     <Wallet className="absolute left-3 top-3 text-slate-400" size={18} />
@@ -476,6 +562,35 @@ export function Customers() {
                       className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
                       placeholder="e.g. 50000"
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Interest Rate (%)</label>
+                    <div className="relative">
+                      <BadgePercent className="absolute left-3 top-3 text-slate-400" size={18} />
+                      <input 
+                        type="number"
+                        step="0.1" 
+                        value={newCustomer.interestRate}
+                        onChange={(e) => setNewCustomer({...newCustomer, interestRate: e.target.value})}
+                        className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                        placeholder="e.g. 2.5"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Interest Period</label>
+                    <select 
+                      value={newCustomer.interestType}
+                      onChange={(e) => setNewCustomer({...newCustomer, interestType: e.target.value})}
+                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                    >
+                      <option value="Monthly">Monthly</option>
+                      <option value="Yearly">Yearly</option>
+                    </select>
                   </div>
                 </div>
 
@@ -517,6 +632,97 @@ export function Customers() {
                     className="flex-1 btn-primary py-2.5 shadow-blue-500/20"
                   >
                     Save Customer
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Edit Customer Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && editingCustomer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md glass-card p-0 overflow-hidden shadow-2xl"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700/50 bg-white/50 dark:bg-slate-800/50">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Edit Customer</h2>
+                <button 
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateCustomer} className="p-6 space-y-5 bg-white/80 dark:bg-slate-900/80">
+                
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      required
+                      type="text" 
+                      value={editingCustomer.name}
+                      onChange={(e) => setEditingCustomer({...editingCustomer, name: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Contact Number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      type="text" 
+                      value={editingCustomer.phone}
+                      onChange={(e) => setEditingCustomer({...editingCustomer, phone: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Place / Location</label>
+                  <div className="relative">
+                    <Map className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <input 
+                      type="text" 
+                      value={editingCustomer.location}
+                      onChange={(e) => setEditingCustomer({...editingCustomer, location: e.target.value})}
+                      className="w-full pl-10 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-slate-900 dark:text-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 btn-primary py-2.5 shadow-blue-500/20"
+                  >
+                    Update Details
                   </button>
                 </div>
               </form>

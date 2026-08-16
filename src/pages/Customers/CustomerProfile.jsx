@@ -12,7 +12,9 @@ import {
   Clock,
   CheckCircle2,
   FileText,
-  Download
+  Download,
+  MoreVertical,
+  MessageCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -27,6 +29,31 @@ export function CustomerProfile() {
   const [customer, setCustomer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  const handleWhatsAppShare = (payment) => {
+    if (!customer || !customer.loan) return;
+    
+    let text = `*Payment Receipt*\n\n`;
+    text += `Hello ${customer.name},\n`;
+    text += `We have received your payment of *₹${payment.totalPaid.toLocaleString()}* on ${payment.date}.\n\n`;
+    text += `*Payment Breakdown:*\n`;
+    if (payment.principalPart > 0) text += `- Principal: ₹${payment.principalPart.toLocaleString()}\n`;
+    if (payment.interestPart > 0) text += `- Interest: ₹${payment.interestPart.toLocaleString()}\n`;
+    text += `\n*Remaining Balance:* ₹${customer.loan.remainingPrincipal.toLocaleString()}\n\n`;
+    text += `Thank you!`;
+
+    const encodedText = encodeURIComponent(text);
+    
+    let phone = customer.phone || '';
+    phone = phone.replace(/\\D/g,'');
+    if (phone.length === 10) phone = '91' + phone;
+
+    const url = phone ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodedText}` : `https://wa.me/?text=${encodedText}`;
+    
+    window.open(url, '_blank');
+    setActiveDropdown(null);
+  };
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -197,7 +224,7 @@ export function CustomerProfile() {
                       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
                         
                         {/* Date & basic info */}
-                        <div>
+                        <div className="flex-grow">
                           <div className="flex items-center gap-2 mb-1">
                             <Calendar size={14} className="text-slate-400" />
                             <span className="font-semibold text-slate-800 dark:text-slate-200">{payment.date}</span>
@@ -230,6 +257,28 @@ export function CustomerProfile() {
                               <IndianRupee size={16}/> {payment.totalPaid.toLocaleString('en-IN')}
                             </p>
                           </div>
+                        </div>
+
+                        {/* Three dot menu */}
+                        <div className="relative flex-shrink-0">
+                          <button 
+                            onClick={() => setActiveDropdown(activeDropdown === payment.id ? null : payment.id)}
+                            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          >
+                            <MoreVertical size={18} />
+                          </button>
+                          
+                          {activeDropdown === payment.id && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-100 dark:border-slate-700 overflow-hidden z-10">
+                              <button 
+                                onClick={() => handleWhatsAppShare(payment)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-[#25D366]/10 hover:text-[#25D366] transition-colors"
+                              >
+                                <MessageCircle size={16} />
+                                Resend Receipt
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                       </div>
